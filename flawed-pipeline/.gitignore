@@ -1,0 +1,24 @@
+# SAM and AWS
+.aws-sam/
+packaged.yaml
+samconfig.toml
+.aws/
+credentials
+
+# Local Execution Logs & Tests
+*.log
+execution_logs.txt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store

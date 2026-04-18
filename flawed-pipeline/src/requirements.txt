@@ -1,0 +1,2 @@
+# Add your Python dependencies here.
+# Currently empty as the simulation only uses standard libraries (json, time, random)

@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  flawed-pipeline
+  
+  Sample SAM Template for a deliberately flawed AWS serverless data pipeline.
+
+Globals:
+  Function:
+    Runtime: python3.12
+  Api:
+    Cors:
+      AllowMethods: "'POST, OPTIONS'"
+      AllowHeaders: "'Content-Type'"
+      AllowOrigin: "'*'" # Allowed for frontend testing
+
+Resources:
+  # The SQS Queue
+  FlawedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      # INTENTIONAL FLAW: No RedrivePolicy / DLQ configured
+      # Failed messages go back to the queue and eventually get discarded
+      QueueName: FlawedPipelineQueue
+
+  # The Producer: API Gateway -> Lambda -> SQS
+  ProducerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: producer.lambda_handler
+      Timeout: 10
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref FlawedQueue
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt FlawedQueue.QueueName
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /process
+            Method: post
+
+  # The Consumer: SQS -> Lambda
+  FlawedPipelineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      # ISSUE: Very short timeout relative to execution time (2-5 secs).
+      Timeout: 3
+      # INTENTIONAL FLAWS:
+      # - No ReservedConcurrentExecutions
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt FlawedQueue.Arn
+            BatchSize: 1 # ISSUE: Processes one by one without batch window
+
+Outputs:
+  ProducerApiUrl:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/process"

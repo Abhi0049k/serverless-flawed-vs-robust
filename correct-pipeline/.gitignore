@@ -1,0 +1,19 @@
+# SAM and AWS
+.aws-sam/
+packaged.yaml
+samconfig.toml
+*.log
+execution_logs.txt
+.DS_Store
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  robust-pipeline
+  
+  Sample SAM Template for a robust, production-ready AWS serverless data pipeline.
+
+Globals:
+  Function:
+    Runtime: python3.12
+  Api:
+    Cors:
+      AllowMethods: "'POST, OPTIONS'"
+      AllowHeaders: "'Content-Type'"
+      AllowOrigin: "'*'" # Allowed for frontend testing
+
+Resources:
+  # The Dead Letter Queue (DLQ) to catch failed messages
+  RobustQueueDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: RobustPipelineQueueDLQ
+
+  # The main SQS Queue
+  RobustQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: RobustPipelineQueue
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RobustQueueDLQ.Arn
+        maxReceiveCount: 3 # If processing fails 3 times, send to DLQ
+
+  # The Producer: API Gateway -> Lambda -> SQS
+  ProducerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: producer.lambda_handler
+      Timeout: 10
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref RobustQueue
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt RobustQueue.QueueName
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /process
+            Method: post
+
+  # The Consumer: SQS -> Lambda
+  RobustPipelineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Timeout: 30 # FIX: Increased timeout to ensure long tasks complete
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RobustQueue.Arn
+            BatchSize: 10 # FIX: Batching enabled for efficiency
+            FunctionResponseTypes:
+              - ReportBatchItemFailures # FIX: Partial batch failure handling enabled
+
+Outputs:
+  ProducerApiUrl:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/process"
