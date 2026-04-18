@@ -69,7 +69,7 @@ graph TD
     AGW -->|Invoke| ProdLambda
     ProdLambda -->|Send Message| SQS
     
-    SQS -->|Trigger (BatchSize: 10)| ConsLambda
+    SQS -->|Trigger BatchSize 10| ConsLambda
     
     ConsLambda -.->|Partial Failures Returned| SQS
     SQS -.->|Failed > 3 Times| DLQ

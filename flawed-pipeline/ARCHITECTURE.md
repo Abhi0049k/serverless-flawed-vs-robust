@@ -75,7 +75,7 @@ graph TD
     Client -->|HTTP POST| AGW
     AGW -->|Invoke| ProdLambda
     ProdLambda -->|Send Message| SQS
-    SQS -->|Trigger (BatchSize: 1)| ConsLambda
+    SQS -->|Trigger BatchSize 1| ConsLambda
     
     ConsLambda -.->|30% Crash / Timeout| Void
     ConsLambda -.->|Log Execution| CW
